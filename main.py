@@ -1,9 +1,20 @@
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3
+import os
 from datetime import datetime
 
 app = Flask(__name__)
-DB_NAME = "em.db"
+
+# Explicit CORS configuration – allows all origins, methods, and headers
+CORS(app, resources={r"/*": {
+    "origins": "*",
+    "methods": ["GET", "POST", "OPTIONS"],
+    "allow_headers": ["Content-Type"]
+}})
+
+# Use absolute path so SQLite can write on Render
+DB_NAME = os.path.join(os.getcwd(), "em.db")
 
 
 # ---------------------------
@@ -12,7 +23,6 @@ DB_NAME = "em.db"
 def init_db():
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS wishes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,7 +31,6 @@ def init_db():
             created_at TEXT NOT NULL
         )
     """)
-
     conn.commit()
     conn.close()
 
@@ -38,8 +47,6 @@ def get_db_connection():
 # ---------------------------
 # API ROUTES
 # ---------------------------
-
-# GET all wishes
 @app.route('/wishes', methods=['GET'])
 def get_wishes():
     conn = get_db_connection()
@@ -47,15 +54,16 @@ def get_wishes():
         "SELECT * FROM wishes ORDER BY id DESC"
     ).fetchall()
     conn.close()
-
     return jsonify([dict(row) for row in wishes])
 
 
-# POST a new wish
-@app.route('/wishes', methods=['POST'])
+@app.route('/wishes', methods=['POST', 'OPTIONS'])
 def add_wish():
-    data = request.get_json()
+    # Handle preflight CORS request explicitly
+    if request.method == 'OPTIONS':
+        return '', 200
 
+    data = request.get_json()
     name = data.get('name')
     message = data.get('message')
 
@@ -64,7 +72,6 @@ def add_wish():
 
     conn = get_db_connection()
     cursor = conn.cursor()
-
     cursor.execute("""
         INSERT INTO wishes (name, message, created_at)
         VALUES (?, ?, ?)
@@ -84,5 +91,8 @@ def add_wish():
 # ---------------------------
 # RUN SERVER
 # ---------------------------
-app = Flask(__name__)
-CORS(app)
+if __name__ == '__main__':
+    init_db()
+    # Render sets the PORT environment variable
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
