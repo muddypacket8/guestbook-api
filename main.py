@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask_cors import CORS
 import sqlite3
 from datetime import datetime
 
@@ -84,5 +84,5 @@ def add_wish():
 # ---------------------------
 # RUN SERVER
 # ---------------------------
-if __name__ == "__main__":
-    init_db()
+app = Flask(__name__)
+CORS(app)
